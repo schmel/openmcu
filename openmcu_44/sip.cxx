@@ -1,4 +1,7 @@
+#include <ptlib.h>
 #include "mcu.h"
+#include <stdio.h>
+#include <string.h>
 
 RTP_UDP *OpenMCUSipConnection::CreateRTPSession(int pt, SipCapability *sc)
 {
@@ -501,13 +504,13 @@ void OpenMCUSipConnection::SipReply200(nta_agent_t *agent, msg_t *msg)
 
   if(sdp_msg.IsEmpty())
   {
-    nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR(contact),TAG_END());
+    nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR((const char*)contact),TAG_END());
     return;
   }
   char *sdp_txt = strdup(sdp_msg);
   msg_common_t ms = {0, 0, sip_payload_class, sdp_txt, strlen(sdp_txt)};
   sip_payload_t sdp = {{ms}, NULL, sdp_txt, strlen(sdp_txt)};
-  nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR(contact),
+  nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR((const char*)contact),
                  SIPTAG_CONTENT_TYPE_STR("application/sdp"), SIPTAG_PAYLOAD(&sdp), TAG_END());
   free(sdp_txt);
   StartReceiveChannels();
@@ -568,7 +571,7 @@ int OpenMCUSipEndPoint::ProcessSipEvent_cb(nta_agent_t *agent,
  if(request == "OPTIONS")
  {
   PString contact = "<sip:openmcu@" + PString(sip->sip_to->a_url[0].url_host) + ":5060>";
-  nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR(contact),TAG_END());
+  nta_msg_treply(agent,msg, SIP_200_OK, SIPTAG_CONTACT_STR((const char*)contact),TAG_END());
   return 0;
  }
  return 0;

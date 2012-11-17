@@ -23,7 +23,11 @@ class SipKey
 class CmpSipKey
 {
  public:
+#ifdef _WIN32
+ bool operator()(SipKey k1, SipKey k2) const
+#else
  bool operator()(SipKey k1, SipKey k2)
+#endif
  {
   if(k1.addr < k2.addr) return true;
   else if(k1.addr == k2.addr)

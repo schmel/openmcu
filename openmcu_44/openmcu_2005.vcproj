@@ -141,7 +141,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="h323plus.lib ptlibs.lib"
+				AdditionalDependencies="h323plus.lib ptlibs.lib turbojpeg-static.lib libyuv.lib freetype.lib libsofia_sip_ua.lib"
 				OutputFile="$(OutDir)/openmcu.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
@@ -217,15 +217,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\html.cxx"
+				>
+			</File>
+			<File
 				RelativePath=".\main.cxx"
 				>
 			</File>
 			<File
 				RelativePath=".\mcu.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\html.cxx"
 				>
 			</File>
 			<File
@@ -247,6 +247,10 @@
 						UsePrecompiledHeader="1"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\sip.cxx"
+				>
 			</File>
 			<File
 				RelativePath=".\video.cxx"

@@ -1,21 +1,8 @@
 #include <ptlib.h>
 
-#ifdef _WIN32
-
-#define __S_IREAD       0400    /* Read by owner.  */
-#define __S_IWRITE      0200    /* Write by owner.  */
-#define __S_IEXEC       0100    /* Execute by owner.  */
-#define S_IRUSR __S_IREAD       /* Read by owner.  */
-#define S_IWUSR __S_IWRITE      /* Write by owner.  */
-#define S_IRGRP (S_IRUSR >> 3)  /* Read by group.  */
-#define S_IROTH (S_IRGRP >> 3)  /* Read by others.  */
-#define DONT_USE_MKFIFO 1
-
-#else //!_WIN32
-
+#ifndef _WIN32
 #include <unistd.h>
-
-#endif //_WIN32
+#endif
 
 //#include "conference.h"
 #include "mcu.h"
@@ -217,10 +204,36 @@ const char wavHeader[44] = {0x52,0x49,0x46,0x46,0xe7,0xff,0xff,0x7f,
 
 void ConferenceFileMember::WriteThread(PThread &, INT)
 {
+#ifdef _WIN32
+  PString cstr="\\\\.\\pipe\\sound_"+conference->GetNumber();
+//  LPCSTR cname = L"\\\\.\\pipe\\sound_" + (const char*)conference->GetNumber();
+  LPCSTR cname = cstr;
+  HANDLE pipe = CreateNamedPipe(cname, PIPE_ACCESS_OUTBOUND,
+//    PIPE_TYPE_BYTE|PIPE_WAIT|PIPE_ACCEPT_REMOTE_CLIENTS,
+    PIPE_TYPE_BYTE|PIPE_WAIT,
+    1,   //DWORD nMaxInstances
+    3*960, //DWORD nOutBufferSize
+    0,   //DWORD nInBufferSize
+    0,   //DWORD nDefaultTimeOut
+    NULL //LPSECURITY_ATTRIBUTES lpSecurityAttributes
+  );
+  if (pipe == NULL || pipe == INVALID_HANDLE_VALUE) {
+    PTRACE(3,"WriteThread\tFailed to create outbound pipe instance for audio: " << cstr);
+    ConferenceManager & mgr = conference->GetManager();
+    mgr.RemoveMember(conference->GetID(), this);
+    return;
+  }
+  if (!ConnectNamedPipe(pipe, NULL)) {
+    PTRACE(3,"WriteThread\tCould not connect to audio named pipe: " << cstr);
+    ConferenceManager & mgr = conference->GetManager();
+    mgr.RemoveMember(conference->GetID(), this);
+    return;
+  }
+  PTRACE(3,"WriteThread\tAudio pipe created: " << cstr);
+#else
   PString cstr = "sound." + conference->GetNumber();
   const char *cname = cstr;
   cout << "cname= " << cname << "\n";
-#ifndef DONT_USE_MKFIFO
   mkfifo(cname,S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR);
   int SS=open(cname,O_WRONLY);
 #endif
@@ -235,8 +248,39 @@ void ConferenceFileMember::WriteThread(PThread &, INT)
     // read a block of data
     ReadAudio(pcmData.GetPointer(), pcmData.GetSize());
 
-#ifndef DONT_USE_MKFIFO
     // write to the file
+#ifdef _WIN32
+    DWORD lpNumberOfBytesWritten;
+    BOOL result=WriteFile(pipe, (const void *)pcmData.GetPointer(), pcmData.GetSize(), &lpNumberOfBytesWritten, NULL);
+    if(!result)result=(GetLastError()==ERROR_IO_PENDING);
+    if(result) {
+      if(success==0) { success++; audioDelay.Restart(); }
+    } else {
+      CloseHandle(pipe);
+      pipe = CreateNamedPipe(cname, PIPE_ACCESS_OUTBOUND,
+        PIPE_TYPE_BYTE|PIPE_WAIT,
+        1,   //DWORD nMaxInstances
+        3*960, //DWORD nOutBufferSize
+        0,   //DWORD nInBufferSize
+        0,   //DWORD nDefaultTimeOut
+        NULL //LPSECURITY_ATTRIBUTES lpSecurityAttributes
+      );
+      if (pipe == NULL || pipe == INVALID_HANDLE_VALUE) {
+        PTRACE(3,"WriteThread\tWriting audio to pipe failed; could not re-create outbound pipe instance: " << cstr);
+        ConferenceManager & mgr = conference->GetManager();
+        mgr.RemoveMember(conference->GetID(), this);
+        return;
+      }
+      if (!ConnectNamedPipe(pipe, NULL)) {
+        PTRACE(3,"WriteThread\tCould not connect to audio named pipe: " << cstr);
+        ConferenceManager & mgr = conference->GetManager();
+        mgr.RemoveMember(conference->GetID(), this);
+        return;
+      }
+      PTRACE(3,"WriteThread\tAudio pipe re-created: " << cstr);
+      success=0; audioDelay.Restart();
+    }
+#else
     if (write(SS,(const void *)pcmData.GetPointer(), pcmData.GetSize())<0) 
      { close(SS); SS=open(cname,O_WRONLY); success=0; audioDelay.Restart(); }
     else if(success==0) { success++; audioDelay.Restart(); } 
@@ -246,7 +290,9 @@ void ConferenceFileMember::WriteThread(PThread &, INT)
     audioDelay.Delay(pcmData.GetSize() / 32);
   }
 
-#ifndef DONT_USE_MKFIFO
+#ifdef _WIN32
+  CloseHandle(pipe);
+#else
   close(SS);
 #endif
   ConferenceManager & mgr = conference->GetManager();
@@ -255,14 +301,35 @@ void ConferenceFileMember::WriteThread(PThread &, INT)
 
 void ConferenceFileMember::WriteThreadV(PThread &, INT)
 {
+  int amount = CIF4_WIDTH*CIF4_HEIGHT*3/2;
+#ifdef _WIN32
+  PString cstr="\\\\.\\pipe\\video_" + conference->GetNumber();
+//  LPCSTR cname = L"\\\\.\\pipe\\video_" + conference->GetNumber();
+  LPCSTR cname = cstr;
+  HANDLE pipe = CreateNamedPipe(cname, PIPE_ACCESS_OUTBOUND,
+    PIPE_TYPE_BYTE|PIPE_WAIT,
+    1,      //DWORD nMaxInstances
+    3*amount, //DWORD nOutBufferSize
+    0,      //DWORD nInBufferSize
+    0,      //DWORD nDefaultTimeOut
+    NULL    //LPSECURITY_ATTRIBUTES lpSecurityAttributes
+  );
+  if (pipe == NULL || pipe == INVALID_HANDLE_VALUE) {
+    PTRACE(3,"WriteThreadV\tFailed to create outbound pipe instance for video: " << cstr);
+    return;
+  }
+  if (!ConnectNamedPipe(pipe, NULL)) {
+    PTRACE(3,"WriteThread\tCould not connect to video named pipe: " << cstr);
+    return;
+  }
+  PTRACE(3,"WriteThreadV\tVideo pipe created: " << cstr);
+#else
   PString cstr = "video." + conference->GetNumber();
   const char *cname = cstr;
   cout << "cname= " << cname << "\n";
-#ifndef DONT_USE_MKFIFO
   mkfifo(cname,S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR);
   int SV=open(cname,O_WRONLY);
 #endif
-  int amount = CIF4_WIDTH*CIF4_HEIGHT*3/2;
   PBYTEArray videoData(amount);
   PAdaptiveDelay videoDelay;
   int success=0;
@@ -272,8 +339,35 @@ void ConferenceFileMember::WriteThreadV(PThread &, INT)
     // read a block of data
     conference->ReadMemberVideo(this,videoData.GetPointer(),CIF4_WIDTH,CIF4_HEIGHT,amount);
 
-#ifndef DONT_USE_MKFIFO
     // write to the file
+#ifdef _WIN32
+    DWORD lpNumberOfBytesWritten=0;
+    BOOL result=WriteFile(pipe, (const void *)videoData.GetPointer(), amount, &lpNumberOfBytesWritten, NULL);
+    if(!result)result=(GetLastError()==ERROR_IO_PENDING);
+    if(result) {
+      if(success==0) { success++; videoDelay.Restart(); }
+    } else {
+      CloseHandle(pipe);
+      pipe = CreateNamedPipe(cname, PIPE_ACCESS_OUTBOUND,
+        PIPE_TYPE_BYTE|PIPE_WAIT,
+        1,      //DWORD nMaxInstances
+        3*amount, //DWORD nOutBufferSize
+        0,      //DWORD nInBufferSize
+        0,      //DWORD nDefaultTimeOut
+        NULL    //LPSECURITY_ATTRIBUTES lpSecurityAttributes
+      );
+      if (pipe == NULL || pipe == INVALID_HANDLE_VALUE) {
+        PTRACE(3,"WriteThreadV\tWriting video to pipe failed; could not re-create outbound pipe instance " << cstr);
+        return;
+      }
+      if (!ConnectNamedPipe(pipe, NULL)) {
+        PTRACE(3,"WriteThread\tCould not connect to video named pipe: " << cstr);
+        return;
+      }
+      PTRACE(3,"WriteThreadV\tVideo pipe re-created: " << cstr);
+      success=0; videoDelay.Restart();
+    }
+#else
     if (write(SV,(const void *)videoData.GetPointer(), amount)<0) 
      { close(SV); SV=open(cname,O_WRONLY); success=0; videoDelay.Restart();}
     else if(success==0) { success++; videoDelay.Restart(); }
@@ -283,7 +377,10 @@ void ConferenceFileMember::WriteThreadV(PThread &, INT)
     videoDelay.Delay(100);
   }
 
-#ifndef DONT_USE_MKFIFO
+#ifdef _WIN32
+  CloseHandle(pipe);
+  PTRACE(3,"WriteThreadV\tVideo pipe closed: " << cstr);
+#else
   close(SV);
 #endif
 }
