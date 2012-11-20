@@ -296,6 +296,10 @@
 				RelativePath=".\dbpe.ico"
 				>
 			</File>
+			<File
+				RelativePath=".\openmcu.rc"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\messages.mc"
