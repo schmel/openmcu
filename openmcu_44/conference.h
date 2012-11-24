@@ -156,7 +156,7 @@ class ConferenceMember;
 #define VMPC_DEFALUT_SCALE_MODE               1
 #define VMPC_DEFAULT_REALLOCATE_ON_DISCONNECT 0
 #define VMPC_DEFAULT_NEW_FROM_BEGIN           1
-#define VMPC_DEFAULT_MOCKUP_WIDTH             367
+#define VMPC_DEFAULT_MOCKUP_WIDTH             533
 #define VMPC_DEFAULT_MOCKUP_HEIGHT            300
 
 #ifdef USE_FREETYPE
@@ -511,7 +511,11 @@ class MCUSimpleVideoMixer : public MCUVideoMixer
       if(mask&_IMGST1)if(s>imageStore1_size){imageStore1.SetSize(s);imageStore1_size=s;}
       if(mask&_IMGST2)if(s>imageStore2_size){imageStore2.SetSize(s);imageStore2_size=s;}
      }
-
+#if USE_LIBJPEG
+    PBYTEArray myjpeg;
+    PINDEX jpegSize;
+    long jpegTime;
+#endif
   protected:
     virtual void CalcVideoSplitSize(unsigned int imageCount, int & subImageWidth, int & subImageHeight, int & cols, int & rows);
     virtual void MyCalcVideoSplitSize(unsigned int imageCount, int *subImageWidth, int *subImageHeight, int *cols, int *rows);

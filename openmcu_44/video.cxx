@@ -2903,6 +2903,10 @@ MCUSimpleVideoMixer::MCUSimpleVideoMixer(BOOL _forceScreenSplit)
   imageStore_size=0;
   imageStore1_size=0;
   imageStore2_size=0;
+#if USE_LIBJPEG
+  jpegTime=0;
+  jpegSize=0;
+#endif
 //  imageStore.SetSize(CIF16_SIZE);
 //  imageStore1.SetSize(CIF16_SIZE);
 //  imageStore2.SetSize(CIF16_SIZE);

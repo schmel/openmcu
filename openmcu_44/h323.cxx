@@ -1026,6 +1026,11 @@ PString OpenMCUH323EndPoint::RoomCtrlPage(const PString room, BOOL ctrl, int n, 
 #endif
   page << "</div>";
 
+  page << "<div id='logging0' style='position:relative;top:0px;left:-277px;width:0px;height:0px;opacity:0.7'>";
+   page << "<div id='logging1' style='position:absolute;width:277px;height:300px'><iframe style='background-color:#eef;border:1px solid #55c;padding:0px;margin:0px' id='loggingframe' name='loggingframe' src='Comm?room=" << room << "' width=277 height=300>Your browser does not support IFRAME tag :(</iframe></div>";
+  page << "</div>";
+
+
  page << "<div id='pbase' style='position:relative;left:0;top:0;width:0px;height:0px'></div>";
 //  page << "<div id='pp_2' style='position:relative;top:0px;left:" << (OpenMCU::vmcfg.vmconf[n].splitcfg.mockup_width+4) << "px;width:0px;height:0px;opacity:0.7;filter:progid:DXImageTransform.Microsoft.Alpha(opacity=70)'>";
   page << "<div id='pp_2' style='position:relative;top:0px;left:" << (OpenMCU::vmcfg.vmconf[n].splitcfg.mockup_width+4) << "px;width:0px;height:0px;opacity:0.7'>";
@@ -1130,6 +1135,7 @@ PString OpenMCUH323EndPoint::SetRoomParams(const PStringToString & data)
 
   if(!data.Contains("vidmemnum")) // Operator just entered
   {
+    OpenMCU::Current().HttpWriteEventRoom("MCU Operator connected",room);
     PTRACE(6,"SetRoomParams\tOperator entrance detected");
     ConferenceListType::iterator r;
     PWaitAndSignal m(conferenceManager.GetConferenceListMutex());

@@ -384,6 +384,9 @@ void Conference::InviteMember(const char *membName)
      return;
    }
  }
+ PStringStream msg;
+ msg << "Inviting " << address;
+ OpenMCU::Current().HttpWriteEventRoom(msg,number);
  if (ep.MakeCall(address, h323Token, userData) == NULL) cout << "Invite err\n";
 }
 
@@ -492,6 +495,7 @@ BOOL Conference::AddMember(ConferenceMember * memberToAdd)
    serviceMemberNameList.insert(MemberNameList::value_type(memberToAdd->GetName(),memberToAdd));
   }
 */  
+  PStringStream msg; msg << "<font color=green><b>+</b>" << memberToAdd->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
   return TRUE;
 }
 
@@ -509,6 +513,7 @@ BOOL Conference::RemoveMember(ConferenceMember * memberToRemove)
 
   PTRACE(3, "Conference\tRemoving call " << memberToRemove->GetName() << " from conference " << guid << " with size " << (PINDEX)memberList.size());
   cout << memberToRemove->GetName() << " leaving conference " << number << "(" << guid << ")" << endl;
+  PStringStream msg; msg << "<font color=red><b>-</b>" << memberToRemove->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
 
      
   BOOL closeConference;

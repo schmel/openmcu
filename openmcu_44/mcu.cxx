@@ -20,6 +20,7 @@ static const char TraceLevelKey[]         = "Trace level";
 static const char UserNameKey[]           = "Username";
 static const char PasswordKey[]           = "Password";
 static const char HttpPortKey[]           = "HTTP Port";
+static const char HttpLinkEventBufferKey[]= "Room control event buffer size";
 
 static const char CallLogFilenameKey[]    = "Call log filename";
 
@@ -64,6 +65,15 @@ class JpegFrameHTTP : public PServiceHTTPString
     OpenMCU & app;
 };
 #endif
+
+class InteractiveHTTP : public PServiceHTTPString
+{
+  public:
+    InteractiveHTTP(OpenMCU & app, PHTTPAuthority & auth);
+    BOOL OnGET (PHTTPServer & server, const PURL &url, const PMIMEInfo & info, const PHTTPConnectionInfo & connectInfo);
+  private:
+    OpenMCU & app;
+};
 
 class MainStatusPage : public PServiceHTTPString
 {
@@ -241,6 +251,12 @@ BOOL OpenMCU::Initialise(const char * initMsg)
   // Trace level
   rsrc->Add(new PHTTPIntegerField(TraceLevelKey, 0, 6, TraceLevel, "0...6"));
 
+  // Buffered events
+  httpBuffer=cfg.GetInteger(HttpLinkEventBufferKey, 100);
+  httpBufferedEvents.SetSize(httpBuffer);
+  rsrc->Add(new PHTTPIntegerField(HttpLinkEventBufferKey, 10, 1000, httpBuffer, "10...1000"));
+  httpBufferIndex=0; httpBufferComplete=0;
+
 #if P_SSL
   // SSL certificate file.
   PString certificateFile = cfg.GetString(HTTPCertificateFileKey, "server.pem");
@@ -256,6 +272,7 @@ BOOL OpenMCU::Initialise(const char * initMsg)
   rsrc->Add(new PHTTPIntegerField(HttpPortKey, 1, 32767, httpPort));
 
   endpoint->Initialise(cfg, rsrc);
+  if(endpoint->behind_masq){PStringStream msq; msq<<"Masquerading as "<<*(endpoint->masqAddressPtr); HttpWriteEvent(msq);}
 
 #if OPENMCU_VIDEO
   forceScreenSplit = cfg.GetBoolean(ForceSplitVideoKey, TRUE);
@@ -316,6 +333,8 @@ BOOL OpenMCU::Initialise(const char * initMsg)
   // Create JPEG frame via HTTP
   httpNameSpace.AddResource(new JpegFrameHTTP(*this, authority), PHTTPSpace::Overwrite);
 #endif
+
+  httpNameSpace.AddResource(new InteractiveHTTP(*this, authority), PHTTPSpace::Overwrite);
 
   // Add log file links
   if (!systemLogFileName && (systemLogFileName != "-")) {
@@ -470,37 +489,51 @@ BOOL MainStatusPage::Post(PHTTPRequest & request,
 
 
 #if USE_LIBJPEG
+
+MCUSimpleVideoMixer* jpegMixer;
+
+void jpeg_init_destination(j_compress_ptr cinfo){
+  if(jpegMixer->myjpeg.GetSize()<32768)jpegMixer->myjpeg.SetSize(32768);
+  cinfo->dest->next_output_byte=&jpegMixer->myjpeg[0];
+  cinfo->dest->free_in_buffer=jpegMixer->myjpeg.GetSize();
+}
+
+boolean jpeg_empty_output_buffer(j_compress_ptr cinfo){
+  PINDEX oldsize=jpegMixer->myjpeg.GetSize();
+  jpegMixer->myjpeg.SetSize(oldsize+16384);
+  cinfo->dest->next_output_byte = &jpegMixer->myjpeg[oldsize];
+  cinfo->dest->free_in_buffer = jpegMixer->myjpeg.GetSize() - oldsize;
+  return true;
+}
+
+void jpeg_term_destination(j_compress_ptr cinfo){
+  jpegMixer->jpegSize=jpegMixer->myjpeg.GetSize() - cinfo->dest->free_in_buffer;
+  jpegMixer->jpegTime=time(0);
+}
+
 JpegFrameHTTP::JpegFrameHTTP(OpenMCU & _app, PHTTPAuthority & auth)
   : PServiceHTTPString("Jpeg", "", "image/jpeg", auth),
     app(_app)
 {
-  PTRACE(6,"jpeg\tJpegFrameHTTP constructed");
 }
+
 BOOL JpegFrameHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEInfo & info, const PHTTPConnectionInfo & connectInfo)
 {
   PWaitAndSignal m(mutex);
-  const int width=352, height=288;
-  FILE * outfile;
+  const int width=534, height=300;
   PStringStream room; room << url; if(room.Find("Jpeg?room=")!=0)return FALSE;
   room=room.Right(room.GetLength()-10);
   PINDEX amppos;
   if((amppos=room.Find("&"))!=P_MAX_INDEX) room=room.Left(amppos);
-  PString imgstr = "image." + room + ".jpg"; const char *imgname = imgstr;
-  struct stat buf;
-  BOOL hit=false;
-  if(!stat(imgname,&buf)){
-    const unsigned long t0=buf.st_mtime;
-    const unsigned long t1=time(0);
-    if(t1-t0<2) hit=true;
-    PTRACE(6,"jpeg\tOnGET hit_cache=" << hit << " st_mtime=" << t0 << " time=" << t1);
-  } else PTRACE(6,"jpeg\tOnGET hit_cache=0, cant stat " << imgname);
-  if(!hit)
+  const unsigned long t1=time(0);
+  ConferenceListType & conferenceList = app.GetEndpoint().GetConferenceManager().GetConferenceList();
+  ConferenceListType::iterator r; for(r = conferenceList.begin(); r != conferenceList.end(); ++r)
   {
-    ConferenceListType & conferenceList = app.GetEndpoint().GetConferenceManager().GetConferenceList();
-    ConferenceListType::iterator r; for(r = conferenceList.begin(); r != conferenceList.end(); ++r)
+    Conference & conference = *(r->second);
+    if(conference.GetNumber()==room)
     {
-      Conference & conference = *(r->second);
-      if(conference.GetNumber()==room)
+      jpegMixer=(MCUSimpleVideoMixer*)conference.GetVideoMixer();
+      if(t1-(jpegMixer->jpegTime)>1)
       {
         struct jpeg_compress_struct cinfo; struct jpeg_error_mgr jerr;
         JSAMPROW row_pointer[1]; int row_stride;
@@ -516,39 +549,67 @@ BOOL JpegFrameHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEInf
         converter->Convert(videoData,bitmap);
         delete converter;
         delete videoData;
-        if((outfile = fopen(imgname, "wb")) != NULL)
-        {
-          jpeg_stdio_dest(&cinfo,outfile);
-          jpeg_set_defaults(&cinfo);
-          jpeg_start_compress(&cinfo,TRUE);
-          row_stride = cinfo.image_width * 3;
-          while (cinfo.next_scanline < cinfo.image_height) {
-            row_pointer[0] = (JSAMPLE *) & bitmap [cinfo.next_scanline * row_stride];
-            (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
-          }
-          jpeg_finish_compress(&cinfo);
-          fclose(outfile);
-          jpeg_destroy_compress(&cinfo);
-          delete bitmap;
+        jpeg_set_defaults(&cinfo);
+        cinfo.dest = new jpeg_destination_mgr;
+        cinfo.dest->init_destination = &jpeg_init_destination;
+        cinfo.dest->empty_output_buffer = &jpeg_empty_output_buffer;
+        cinfo.dest->term_destination = &jpeg_term_destination;
+        jpeg_start_compress(&cinfo,TRUE);
+        row_stride = cinfo.image_width * 3;
+        while (cinfo.next_scanline < cinfo.image_height) {
+          row_pointer[0] = (JSAMPLE *) & bitmap [cinfo.next_scanline * row_stride];
+          (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
         }
+        jpeg_finish_compress(&cinfo);
+        delete bitmap; delete cinfo.dest; cinfo.dest=NULL;
+        jpeg_destroy_compress(&cinfo);
+        jpegMixer->jpegTime=t1;
       }
+      server.Write(jpegMixer->myjpeg,jpegMixer->jpegSize);
     }
-  }
-
-  outfile=fopen(imgname,"r");
-  if(outfile){
-    fseek(outfile,0,SEEK_END);
-    PINDEX f_size=ftell(outfile);
-    rewind(outfile);
-    PBYTEArray jpeg_data(f_size);
-    fread(jpeg_data.GetPointer(),1,f_size,outfile);
-    fclose(outfile);
-    PTRACE(6,"jpeg\tOnGETData url=" << url << " room=" << room << " size=" << f_size);
-    server.Write((const char *)jpeg_data.GetPointer(), f_size);
   }
   return FALSE;
 }
 #endif //#if USE_LIBJPEG
+
+InteractiveHTTP::InteractiveHTTP(OpenMCU & _app, PHTTPAuthority & auth)
+  : PServiceHTTPString("Comm", "", "text/html; charset=utf-8", auth),
+    app(_app)
+{
+}
+
+BOOL InteractiveHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEInfo & info, const PHTTPConnectionInfo & connectInfo)
+{
+  PStringStream room; room << url; if(room.Find("Comm?room=")!=0) room=""; else room=room.Right(room.GetLength()-10);
+  PStringStream message;
+  PTime now;
+  int idx=0;
+  message << "HTTP/1.1 200 OK\r\n"
+    << "Date: " << now.AsString(PTime::RFC1123, PTime::GMT) << "\r\n"
+    << "Server: OpenMCU.ru\r\n"
+    << "MIME-Version: 1.0\r\n"
+    << "Cache-Control: no-cache, must-revalidate\r\n"
+    << "Expires: Sat, 26 Jul 1997 05:00:00 GMT\r\n"
+    << "Content-Type: text/html;charset=utf-8\r\n"
+    << "Connection: Close\r\n"
+    << "\r\n";
+  server.Write((const char*)message,message.GetLength());
+  server.flush();
+  message="<html><body style='font-size:9px;font-family:Verdana,Arial;padding:0px;margin:1px;color:#000'>\r\n";
+  message << OpenMCU::Current().HttpGetEvents(idx,room);
+  while(server.Write((const char*)message,message.GetLength())) {
+    server.flush();
+    int count=0;
+    message = OpenMCU::Current().HttpGetEvents(idx,room);
+    while (message.GetLength()==0 and count < 20){
+      count++;
+      PThread::Sleep(100);
+      message = OpenMCU::Current().HttpGetEvents(idx,room);
+    }
+    message << "<script>parent.alive()</script>\r\n";
+  }
+  return FALSE;
+}
 
 InvitePage::InvitePage(OpenMCU & _app, PHTTPAuthority & auth)
   : PServiceHTTPString("Invite", "", "text/html; charset=utf-8", auth),

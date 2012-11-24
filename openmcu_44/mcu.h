@@ -68,6 +68,57 @@ class OpenMCU : public OpenMCUProcessAncestor
     int GetRoomTimeLimit() const
     { return roomTimeLimit; }
 
+    int GetHttpBuffer() const { return httpBuffer; }
+
+    virtual void HttpWrite_(PString evt) {
+      PWaitAndSignal m(httpBufferMutex);
+      httpBufferedEvents[httpBufferIndex]=evt; httpBufferIndex++;
+      if(httpBufferIndex>=httpBuffer){ httpBufferIndex=0; httpBufferComplete=1; }
+    }
+    virtual void HttpWriteEvent(PString evt) {
+      PStringStream evt0; PTime now;
+      evt0 << now.AsString("h:mm:ss. ", PTime::Local) << evt << ".<br>";
+      HttpWrite_(evt0);
+    }
+    virtual void HttpWriteEventRoom(PString evt, PString room){
+      PStringStream evt0; PTime now;
+      evt0 << room << "\t" << now.AsString("h:mm:ss. ", PTime::Local) << evt << ".<br>";
+      HttpWrite_(evt0);
+    }
+    virtual void HttpWriteCmdRoom(PString evt, PString room){
+      PStringStream evt0;
+      evt0 << room << "\t<script>parent." << evt << "</script>";
+      HttpWrite_(evt0);
+    }
+    virtual void HttpWriteCmd(PString evt){
+      PStringStream evt0;
+      evt0 << "<script>parent." << evt << "</script>";
+      HttpWrite_(evt0);
+    }
+    virtual PString HttpGetEvents(int &idx, PString room){
+      PStringStream result;
+      if(idx==httpBufferIndex){
+        if(httpBufferComplete){
+          PINDEX pos=httpBufferedEvents[idx].Find("\t",0);
+          if(pos==P_MAX_INDEX)result << httpBufferedEvents[idx];
+          else if(room=="")result << httpBufferedEvents[idx].Mid(pos+1,P_MAX_INDEX);
+          else if(httpBufferedEvents[idx].Left(pos)==room) result << httpBufferedEvents[idx].Mid(pos+1,P_MAX_INDEX);
+          idx++;
+          if(idx>=httpBuffer)idx=0;
+        }
+        else return result;
+      }
+      while (idx!=httpBufferIndex){
+        PINDEX pos=httpBufferedEvents[idx].Find("\t",0);
+        if(pos==P_MAX_INDEX)result << httpBufferedEvents[idx];
+        else if(room=="")result << httpBufferedEvents[idx].Mid(pos+1,P_MAX_INDEX);
+        else if(httpBufferedEvents[idx].Left(pos)==room) result << httpBufferedEvents[idx].Mid(pos+1,P_MAX_INDEX);
+        idx++;
+        if(idx>=httpBuffer)idx=0;
+      }
+      return result;
+    }
+
 #if OPENMCU_VIDEO
     static VideoMixConfigurator vmcfg;
     BOOL GetForceScreenSplit() const
@@ -99,6 +150,12 @@ class OpenMCU : public OpenMCUProcessAncestor
 
     PString    defaultRoomName;
     BOOL       allowLoopbackCalls;
+
+    int        httpBuffer, httpBufferIndex;
+    PStringArray httpBufferedEvents;
+    PMutex     httpBufferMutex;
+    BOOL       httpBufferComplete;
+
     PFilePath  logFilename;
     int        roomTimeLimit;
 

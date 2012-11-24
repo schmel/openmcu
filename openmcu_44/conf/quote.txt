@@ -665,6 +665,40 @@ function vadoptions(obj,mid){
  return false;
 }
 
+function checking_failed(){
+  check_alive=0;
+  if(!iframe_reconnection){
+    var ifr=document.getElementById('loggingframe');
+    var doc=ifr.contentWindow.document.open('text/html','replace');
+    doc.write('<body style="font-face:Verdana,Arial;color:red;font-size:10px;font-weight:bold">Connection dropped :(<br>Trying to reconnect...');
+    if(typeof link_was_lost==='undefined')link_was_lost=document.getElementById('logging1').innerHTML;
+  }
+  setTimeout(reconnect_iframe,1500);
+}
+
+function reconnect_iframe(){
+  iframe_reconnection=1;
+  var ifr=document.getElementById('loggingframe');
+  try{
+  document.getElementById('logging1').removeChild(ifr);
+  document.getElementById('logging1').innerHTML=link_was_lost;
+  check_alive=setTimeout(checking_failed,5500);
+  } catch(e){ location.href=location.href; }
+}
+
+function alive(){
+  iframe_reconnection=0;
+  if(typeof check_alive !== 'undefined') if(check_alive!==0) clearTimeout(check_alive);
+  if(typeof check_alive_counter === 'undefined') check_alive_counter=0; else check_alive_counter++;
+  var ifr=document.getElementById('loggingframe');
+  if(check_alive_counter>=2000){
+    check_alive_counter=0;
+    ifr.contentWindow.location.href=ifr.contentWindow.location.href;
+  }
+  ifr.contentWindow.scrollTo(0,999999);
+  check_alive=setTimeout(checking_failed,5000);
+}
+
 function inviteoffline(obj,mname){ queue_otf_request(mname,32); obj.src='openmcu.ru_launched_Ypf.gif'; }
 
 function removeoffline(obj,mname){ if(confirm("Remove "+decodeURIComponent(mname)+"?")) {queue_otf_request(mname,33); obj.src='openmcu.ru_launched_Ypf.gif'; }}
