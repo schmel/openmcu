@@ -520,7 +520,6 @@ JpegFrameHTTP::JpegFrameHTTP(OpenMCU & _app, PHTTPAuthority & auth)
 BOOL JpegFrameHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEInfo & info, const PHTTPConnectionInfo & connectInfo)
 {
   PWaitAndSignal m(mutex);
-  const int width=534, height=300;
   PStringStream room; room << url; if(room.Find("Jpeg?room=")!=0)return FALSE;
   room=room.Right(room.GetLength()-10);
   PINDEX amppos;
@@ -535,6 +534,8 @@ BOOL JpegFrameHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEInf
       jpegMixer=(MCUSimpleVideoMixer*)conference.GetVideoMixer();
       if(t1-(jpegMixer->jpegTime)>1)
       {
+        const int width=OpenMCU::vmcfg.vmconf[jpegMixer->GetPositionSet()].splitcfg.mockup_width;
+        const int height=OpenMCU::vmcfg.vmconf[jpegMixer->GetPositionSet()].splitcfg.mockup_height;
         struct jpeg_compress_struct cinfo; struct jpeg_error_mgr jerr;
         JSAMPROW row_pointer[1]; int row_stride;
         cinfo.err = jpeg_std_error(&jerr);
