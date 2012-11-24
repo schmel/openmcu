@@ -602,7 +602,7 @@ BOOL InteractiveHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEI
     server.flush();
     int count=0;
     message = OpenMCU::Current().HttpGetEvents(idx,room);
-    while (message.GetLength()==0 and count < 20){
+    while (message.GetLength()==0 && count < 20){
       count++;
       PThread::Sleep(100);
       message = OpenMCU::Current().HttpGetEvents(idx,room);
