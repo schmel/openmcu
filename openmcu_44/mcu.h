@@ -77,12 +77,12 @@ class OpenMCU : public OpenMCUProcessAncestor
     }
     virtual void HttpWriteEvent(PString evt) {
       PStringStream evt0; PTime now;
-      evt0 << now.AsString("h:mm:ss. ", PTime::Local) << evt << ".<br>";
+      evt0 << now.AsString("h:mm:ss. ", PTime::Local) << evt << "<br>";
       HttpWrite_(evt0);
     }
     virtual void HttpWriteEventRoom(PString evt, PString room){
       PStringStream evt0; PTime now;
-      evt0 << room << "\t" << now.AsString("h:mm:ss. ", PTime::Local) << evt << ".<br>";
+      evt0 << room << "\t" << now.AsString("h:mm:ss. ", PTime::Local) << evt << "<br>";
       HttpWrite_(evt0);
     }
     virtual void HttpWriteCmdRoom(PString evt, PString room){
