@@ -619,7 +619,7 @@ void Conference::WriteMemberAudioLevel(ConferenceMember * member, unsigned audio
   if(!((member->audioCounter++)&31)){
     BOOL noLevel=(member->audioLevelIndicator<64);
     if((member->wasNoLevel!=noLevel)||(!noLevel)){
-      PStringStream msg; msg << "audio(" << std::dec << member->GetID() << "," << member->audioLevelIndicator << ")";
+      PStringStream msg; msg << "audio(" << (long)member->GetID() << "," << member->audioLevelIndicator << ")";
       OpenMCU::Current().HttpWriteCmdRoom(msg,number);
       member->wasNoLevel=noLevel; member->audioLevelIndicator=audioLevel;
     }
