@@ -734,6 +734,8 @@ PString OpenMCUH323EndPoint::SetMemberOptionOTF(const PString room,const PString
           if(member->GetName()=="file recorder") continue;
           memberList.erase(member->GetID()); member->Close();
         }
+        OpenMCU::Current().HttpWriteEventRoom("All members dropped by operator",room);
+        OpenMCU::Current().HttpWriteCmdRoom("drop_all()",room);
         return "OK";
       } break;
       case 65: // Invite ALL inactive members
@@ -751,6 +753,8 @@ PString OpenMCUH323EndPoint::SetMemberOptionOTF(const PString room,const PString
         Conference::MemberNameList & memberNameList = conference.GetMemberNameList();
         Conference::MemberNameList::const_iterator s;
         for (s = memberNameList.begin(); s != memberNameList.end(); ++s) if(s->second==NULL) conference.RemoveOfflineMemberFromNameList((PString &)(s->first));
+        OpenMCU::Current().HttpWriteEventRoom("Offline members removed by operator",room);
+        OpenMCU::Current().HttpWriteCmdRoom("remove_all()",room);
         return "OK";
       } break;
       case 67: // Save members.conf
@@ -764,7 +768,9 @@ PString OpenMCUH323EndPoint::SetMemberOptionOTF(const PString room,const PString
         if(membLst!=NULL){
           for (s = memberNameList.begin(); s != memberNameList.end(); ++s) fputs(s->first+"\n",membLst);
           fclose(membLst);
+          OpenMCU::Current().HttpWriteEventRoom("Member list saved",room);
         }
+        else OpenMCU::Current().HttpWriteEventRoom("<font color=red>Error: Can't save member list</font>",room);
         return "OK";
       } break;
 #if USE_LIBYUV
@@ -795,17 +801,40 @@ PString OpenMCUH323EndPoint::SetMemberOptionOTF(const PString room,const PString
       ConferenceMember * member = s->second;
       if(member->GetName()=="file recorder") continue;
       ConferenceMemberId mid = member->GetID();
+      PStringStream cmd; unsigned i=0;
       if((long)mid==mid_otf) switch(action){
-        case 0: member->muteIncoming=FALSE; return "OK"; break;
-        case 1: member->muteIncoming=TRUE; return "OK"; break;
-        case 2: member->disableVAD=FALSE; return "OK"; break;
-        case 3: member->disableVAD=TRUE; return "OK"; break;
-        case 4: member->chosenVan=FALSE; return "OK"; break;
-        case 5: member->chosenVan=TRUE; return "OK"; break;
+        case 0: member->muteIncoming=FALSE; cmd << "iunmute(" << (long)mid << ")"; OpenMCU::Current().HttpWriteCmdRoom(cmd,room); return "OK"; break;
+        case 1: member->muteIncoming=TRUE; cmd << "imute(" << (long)mid << ")"; OpenMCU::Current().HttpWriteCmdRoom(cmd,room); return "OK"; break;
+        case 2:
+          member->disableVAD=FALSE;
+          if(member->chosenVan)i=1;
+          cmd << "ivad(" << (long)mid << "," << i << ")";
+          OpenMCU::Current().HttpWriteCmdRoom(cmd,room);
+          return "OK";
+          break;
+        case 3:
+          member->disableVAD=TRUE;
+          cmd << "ivad(" << (long)mid << ",2)";
+          OpenMCU::Current().HttpWriteCmdRoom(cmd,room);
+          return "OK";
+          break;
+        case 4:
+          member->chosenVan=FALSE;
+          if(member->disableVAD)i=2;
+          cmd << "ivad(" << (long)mid << "," << i << ")";
+          OpenMCU::Current().HttpWriteCmdRoom(cmd,room);
+          return "OK";
+          break;
+        case 5:
+          member->chosenVan=TRUE;
+          cmd << "ivad(" << (long)mid << ",1)";
+          OpenMCU::Current().HttpWriteCmdRoom(cmd,room);
+          return "OK";
+          break;
         case 7: memberList.erase(member->GetID()); member->Close(); return "OK"; break;
-        case 8: member->disableVAD=FALSE; member->chosenVan=FALSE; return "OK"; break;
-        case 9: member->disableVAD=FALSE; member->chosenVan=TRUE; return "OK"; break;
-        case 10: member->disableVAD=TRUE; member->chosenVan=FALSE; return "OK"; break;
+        case 8: member->disableVAD=FALSE; member->chosenVan=FALSE; cmd << "ivad(" << (long)mid << ",0)"; OpenMCU::Current().HttpWriteCmdRoom(cmd,room); return "OK"; break;
+        case 9: member->disableVAD=FALSE; member->chosenVan=TRUE; cmd << "ivad(" << (long)mid << ",1)"; OpenMCU::Current().HttpWriteCmdRoom(cmd,room); return "OK"; break;
+        case 10: member->disableVAD=TRUE; member->chosenVan=FALSE; cmd << "ivad(" << (long)mid << ",2)"; OpenMCU::Current().HttpWriteCmdRoom(cmd,room); return "OK"; break;
       }
     }
     return "OK";

@@ -488,7 +488,7 @@ BOOL Conference::AddMember(ConferenceMember * memberToAdd)
   if(memberToAdd!=memberToAdd->GetID())
   {
     PString username=memberToAdd->GetName(); username.Replace("&","&amp;",TRUE,0); username.Replace("\"","&quot;",TRUE,0);
-    msg="addmmbr(1,"; msg << memberToAdd->GetID()
+    msg="addmmbr(1,"; msg << (long)memberToAdd->GetID()
      << ",\"" << username << "\"," << memberToAdd->muteIncoming
      << "," << memberToAdd->disableVAD << ","
      << memberToAdd->chosenVan << ","
@@ -526,7 +526,7 @@ BOOL Conference::RemoveMember(ConferenceMember * memberToRemove)
   cout << memberToRemove->GetName() << " leaving conference " << number << "(" << guid << ")" << endl;
   PStringStream msg; msg << "<font color=red><b>-</b>" << memberToRemove->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
   PString username=memberToRemove->GetName(); username.Replace("&","&amp;",TRUE,0); username.Replace("\"","&quot;",TRUE,0);
-  msg="remmmbr(0,"; msg << memberToRemove->GetID()
+  msg="remmmbr(0,"; msg << (long)memberToRemove->GetID()
    << ",\"" << username << "\"," << memberToRemove->muteIncoming
    << "," << memberToRemove->disableVAD << ","
    << memberToRemove->chosenVan << ","

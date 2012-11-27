@@ -683,6 +683,9 @@ BOOL InvitePage::Post(PHTTPRequest & request,
     EndPage(html,OpenMCU::Current().GetCopyrightText()); msg = html;
     ep.GetConferenceManager().RemoveConference(room);
     return TRUE;
+  } else {
+    PStringStream msg; msg << "Inviting " << address;
+    OpenMCU::Current().HttpWriteEventRoom(msg,room);
   }
 
   BeginPage(html,"Invite Succeeded","Invite Succeeded","$INVITE_S$");

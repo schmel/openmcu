@@ -55,7 +55,7 @@ $CONTROL$
 
 var max_subframes=100;
 
-var debug=false; if(debug)document.write('<div style="width:800px;height:80px;overflow:auto;border:1px dotted red" id="debug1">'); function dmsg(s){if(debug){document.getElementById('debug1').innerHTML+=s+'. ';document.getElementById('debug1').scrollTop=document.getElementById('debug1').scrollHeight;}}
+var debug=0; if(debug)document.write('<div style="width:800px;height:80px;overflow:auto;border:1px dotted red" id="debug1">'); function dmsg(s){if(debug){document.getElementById('debug1').innerHTML+=s+'. ';document.getElementById('debug1').scrollTop=document.getElementById('debug1').scrollHeight;}}
 
 var fv_ids=Array('room','tag','moderated','vidmemnum','muteUnvisible','VAdelay','VAtimeout','VAlevel');
 var idsl=fv_ids.length;
@@ -648,20 +648,14 @@ function member_read_by_id(id,index){
  return false;
 }
 
-function muteunmute(obj,mid){ dmsg('Mute('+mid+')'); var mute=member_read_by_id(mid,3); obj.src='openmcu.ru_mic_o'+(mute?'n':'ff')+'.gif'; queue_otf_request(mid,1-mute); member_modify_by_id(mid,3,1-mute); return false; }
+function muteunmute(obj,mid){ dmsg('Mute('+mid+')'); var mute=member_read_by_id(mid,3); obj.src='openmcu.ru_launched_Ypf.gif'; queue_otf_request(mid,1-mute); return false; }
 
 function vadoptions(obj,mid){
  var disv=member_read_by_id(mid,4);
  var cvan=member_read_by_id(mid,5);
- if(!(cvan|disv))var cmd=8; else if(cvan)var cmd=9;else var cmd=10;
- cmd=((cmd-7))%3+8;
+ if(!(cvan|disv))var cmd=9; else if(cvan)var cmd=10;else var cmd=8;
  queue_otf_request(mid,cmd);
- obj.src='openmcu.ru_vad_'+((cmd==8)?'vad':'')+((cmd==9)?'chosenvan':'')+((cmd==10)?'disable':'')+'.gif';
- disv=0; cvan=0;
- if(cmd==9) cvan=1;
- if(cmd==10) disv=1;
- member_modify_by_id(mid,4,disv);
- member_modify_by_id(mid,5,cvan);
+ obj.src='openmcu.ru_launched_Yph.gif';
  return false;
 }
 
@@ -709,13 +703,13 @@ function chosenvan_yes_no(obj,mid,cvan){ obj.style.color='#ff0'; queue_otf_reque
 
 function kick_confirm(obj,mid,mname){ if(confirm("Drop connection with "+decodeURIComponent(mname)+"?")) {queue_otf_request(mid,7); obj.src='openmcu.ru_launched_Ypf.gif'; }}
 
-function drop_all(obj){ if(confirm('Drop ALL active connections?')) {queue_otf_request(0,64); obj.innerHTML='<img src="openmcu.ru_launched_Ypf.gif" width=15 height=15>';}}
+function drop_all0(obj){ if(confirm('Drop ALL active connections?')) {queue_otf_request(0,64); }}
 
-function invite_all(obj){ if(confirm('Invite ALL inactive members?')) {queue_otf_request(0,65); obj.innerHTML='<img src="openmcu.ru_launched_Ypf.gif" width=15 height=15>';}}
+function invite_all(obj){ if(confirm('Invite ALL inactive members?')) {queue_otf_request(0,65); }}
 
-function remove_all(obj){ if(confirm('Remove ALL inactive members from list?')) {queue_otf_request(0,66); obj.innerHTML='<img src="openmcu.ru_launched_Ypf.gif" width=15 height=15>';}}
+function remove_all0(obj){ if(confirm('Remove ALL inactive members from list?')) {queue_otf_request(0,66); }}
 
-function save_members_conf(obj){ if(confirm('Rewrite members.conf?')) {queue_otf_request(0,67); obj.innerHTML='<img src="openmcu.ru_launched_Ypf.gif" width=15 height=15>';}}
+function save_members_conf(obj){ if(confirm('Rewrite members.conf?')) {queue_otf_request(0,67); }}
 
 function format_mmbr_button(m,st){
  var bgcolors=Array('#d3d4d5','#f5fffa','#f5ccff');
@@ -738,11 +732,11 @@ function format_mmbr_button(m,st){
 
  var quo='"';
 
- if(st>0) var mute='<img onclick="muteunmute(this,'+m[1]+')" style="cursor:pointer" src="openmcu.ru_mic_'+(m[3]?'off':'on')+'.gif" alt="'+(m[3]?'Unmute':'Mute')+'" width=15 height=15>';
+ if(st>0) var mute='<img onclick="muteunmute(this,'+m[1]+')" style="cursor:pointer" src="openmcu.ru_mic_'+(m[3]?'off':'on')+'.gif" alt="'+(m[3]?'Unmute':'Mute')+'" width=15 height=15 id="mrpan_'+id+'">';
  else var mute="<img onclick='inviteoffline(this,"+quo+encodeURIComponent(m[2])+quo+")' style='cursor:pointer' src='openmcu.ru_invite_Everaldo_Coelho.gif' width=15 weight=15 alt='Invite'>";
 
  if(!(m[4]|m[5]))var cmd=8; else if(m[5]) var cmd=9; else var cmd=10;
- if(st>0) var vad='<img onclick="vadoptions(this,'+m[1]+')" style="cursor:pointer" src="openmcu.ru_vad_'+((cmd==8)?'vad':'')+((cmd==9)?'chosenvan':'')+((cmd==10)?'disable':'')+'.gif" alt="'+((cmd==8)?'Normal':'')+((cmd==9)?'Van':'')+((cmd==10)?'VAD disabled':'')+'" width=15 height=15>';
+ if(st>0) var vad='<img onclick="vadoptions(this,'+m[1]+')" style="cursor:pointer" src="openmcu.ru_vad_'+((cmd==8)?'vad':'')+((cmd==9)?'chosenvan':'')+((cmd==10)?'disable':'')+'.gif" alt="'+((cmd==8)?'Normal':'')+((cmd==9)?'Van':'')+((cmd==10)?'VAD disabled':'')+'" width=15 height=15 id="vrpan_'+id+'">';
  else var vad='';
 
  if(st>0) var kick="<img onclick='kick_confirm(this,"+m[1]+","+quo+encodeURIComponent(m[2])+quo+")' style='cursor:pointer' src='openmcu.ru_drop_Abdylas_Tynyshov.gif' width=15 height=15 alt='Drop'>";
@@ -769,8 +763,8 @@ function additional_panel(){
    +dpre+"23"+dmain+cm+"30px' id='rpan_1' onmousedown='ddstart(event,this,1,1)'>VAD</div></div>"
    +dpre+"56"+dmain+cm+"36px' id='rpan_2' onmousedown='ddstart(event,this,2,2)'>VAD2</div></div>"
    +dpre+"102"+dmain+cp+"28px;background-color:#ccc' onclick='invite_all(this)'><span style='font-weight:bold;color:gray'><img width=15 height=15 alt='Inv.' src='openmcu.ru_invite_Everaldo_Coelho.gif'>*</span></div></div>"
-   +dpre+"133"+dmain+cp+"28px;background-color:#ccc' onclick='remove_all(this)'><span style='font-weight:bold;color:gray'><img width=15 height=15 alt='Rem.' src='openmcu.ru_remove.gif'>*</span></div></div>"
-   +dpre+"171"+dmain+cp+"40px;background-color:#fcc' onclick='drop_all(this)'><span style='font-weight:bold;color:red'><img width=15 height=15 alt='Drop' src='openmcu.ru_drop_Abdylas_Tynyshov.gif'>*</span></div></div>"
+   +dpre+"133"+dmain+cp+"28px;background-color:#ccc' onclick='remove_all0(this)'><span style='font-weight:bold;color:gray'><img width=15 height=15 alt='Rem.' src='openmcu.ru_remove.gif'>*</span></div></div>"
+   +dpre+"171"+dmain+cp+"40px;background-color:#fcc' onclick='drop_all0(this)'><span style='font-weight:bold;color:red'><img width=15 height=15 alt='Drop' src='openmcu.ru_drop_Abdylas_Tynyshov.gif'>*</span></div></div>"
    +dpre+"221"+dmain+cp+"51px;text-align:left;padding-left:4px' onclick='save_members_conf(this)'>Save</div></div>"
    +"</div>";
   return s;
@@ -880,6 +874,64 @@ function remmmbr(st,id,name,mute,dvad,cvan,al){
   members[j]=Array(st,0,name,mute,dvad,cvan,al);
   members_refresh();
   alive();
+}
+
+function remove_all(){
+  if(typeof members==='undefined') return alive();
+  for(var i=members.length-1;i>=0;i--) if(!members[i][0]) members.splice(i,1);
+  members_refresh();
+  alive();
+}
+
+function drop_all(){
+  if(typeof members==='undefined') return alive();
+  for(var i=members.length-1;i>=0;i--) if(members[i][0]) {members[i][0]=0; members[i][1]=0;}
+  for(var i=members.length-1;i>0;i--) for(var j=i-1;i>=0;j--) if(members[i][2]==members[j][2]) {members.splice(j,1); break;}
+  members_refresh();
+  alive();
+}
+
+function object_return(o,id){
+  id+='';
+  if(id.substr(0,1)=='-')o+='_'+id.substr(1);else o+=id;
+  try{
+    if(document.getElementById(o)==='undefined')return;
+    o=document.getElementById(o);
+  } catch(e) { return false; }
+  return o;
+}
+
+function imute(id){
+  for(var i=0;i<members.length;i++) if(members[i][1]==id){
+    members[i][3]=1;
+    if((o=object_return('mrpan_',id))===false) return alive();
+    o.src='openmcu.ru_mic_off.gif';
+    return alive();
+  }
+}
+
+function iunmute(id){
+  for(var i=0;i<members.length;i++) if(members[i][1]==id){
+    members[i][3]=0;
+    if((o=object_return('mrpan_',id))===false) return alive();
+    o.src='openmcu.ru_mic_on.gif';
+    return alive();
+  }
+}
+
+function ivad(id,v){
+  dmsg('vad='+v);
+  for(var i=0;i<members.length;i++) if(members[i][1]==id){
+dmsg('<font color=blue>!!!</font>');
+    var src='openmcu.ru_vad_vad.gif';
+    if(v==2){members[i][4]=1;members[i][5]=0;src='openmcu.ru_vad_disable.gif';}
+    else if(v==1){members[i][4]=0;members[i][5]=1;src='openmcu.ru_vad_chosenvan.gif';}
+    else {members[i][4]=0;members[i][5]=0;}
+    if((o=object_return('vrpan_',id))===false) return alive();
+    o.src=src;
+dmsg('<font color=red>!!!</font>');
+    return alive();
+  }
 }
 
 //--></script>
