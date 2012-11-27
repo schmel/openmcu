@@ -482,9 +482,19 @@ BOOL Conference::AddMember(ConferenceMember * memberToAdd)
 
   memberToAdd->SetName();
 
+  PStringStream msg;
+
   // add this member to the conference member name list
   if(memberToAdd!=memberToAdd->GetID())
   {
+    PString username=memberToAdd->GetName(); username.Replace("&","&amp;",TRUE,0); username.Replace("\"","&quot;",TRUE,0);
+    msg="addmmbr(1,"; msg << memberToAdd->GetID()
+     << ",\"" << username << "\"," << memberToAdd->muteIncoming
+     << "," << memberToAdd->disableVAD << ","
+     << memberToAdd->chosenVan << ","
+     << memberToAdd->GetAudioLevel() << ")";
+    OpenMCU::Current().HttpWriteCmdRoom(msg,number);
+
     memberNameList.erase(memberToAdd->GetName());
     memberNameList.insert(MemberNameList::value_type(memberToAdd->GetName(),memberToAdd));
   }
@@ -495,7 +505,8 @@ BOOL Conference::AddMember(ConferenceMember * memberToAdd)
    serviceMemberNameList.insert(MemberNameList::value_type(memberToAdd->GetName(),memberToAdd));
   }
 */  
-  PStringStream msg; msg << "<font color=green><b>+</b>" << memberToAdd->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
+  msg = "<font color=green><b>+</b>";
+  msg << memberToAdd->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
   return TRUE;
 }
 
@@ -514,8 +525,14 @@ BOOL Conference::RemoveMember(ConferenceMember * memberToRemove)
   PTRACE(3, "Conference\tRemoving call " << memberToRemove->GetName() << " from conference " << guid << " with size " << (PINDEX)memberList.size());
   cout << memberToRemove->GetName() << " leaving conference " << number << "(" << guid << ")" << endl;
   PStringStream msg; msg << "<font color=red><b>-</b>" << memberToRemove->GetName() << "</font>"; OpenMCU::Current().HttpWriteEventRoom(msg,number);
+  PString username=memberToRemove->GetName(); username.Replace("&","&amp;",TRUE,0); username.Replace("\"","&quot;",TRUE,0);
+  msg="remmmbr(0,"; msg << memberToRemove->GetID()
+   << ",\"" << username << "\"," << memberToRemove->muteIncoming
+   << "," << memberToRemove->disableVAD << ","
+   << memberToRemove->chosenVan << ","
+   << memberToRemove->GetAudioLevel() << ")";
+  OpenMCU::Current().HttpWriteCmdRoom(msg,number);
 
-     
   BOOL closeConference;
   {
 
@@ -598,6 +615,15 @@ void Conference::ReadMemberAudio(ConferenceMember * member, void * buffer, PINDE
 // tint - time interval since last call in msec
 void Conference::WriteMemberAudioLevel(ConferenceMember * member, unsigned audioLevel, int tint)
 {
+  member->audioLevelIndicator|=audioLevel;
+  if(!((member->audioCounter++)&31)){
+    BOOL noLevel=(member->audioLevelIndicator<64);
+    if((member->wasNoLevel!=noLevel)||(!noLevel)){
+      PStringStream msg; msg << "audio(" << std::dec << member->GetID() << "," << member->audioLevelIndicator << ")";
+      OpenMCU::Current().HttpWriteCmdRoom(msg,number);
+      member->wasNoLevel=noLevel; member->audioLevelIndicator=audioLevel;
+    }
+  }
 #if OPENMCU_VIDEO
   if (UseSameVideoForAllMembers()) {
     if (videoMixer != NULL)
@@ -739,6 +765,7 @@ ConferenceMember::ConferenceMember(Conference * _conference, ConferenceMemberId 
   : conference(_conference), id(_id), isMCU(_isMCU)
 {
   audioLevel = 0;
+  audioCounter = 0; wasNoLevel = TRUE; audioLevelIndicator = 0;
   terminalNumber = -1;
   memberIsJoined = FALSE;
 

@@ -706,7 +706,7 @@ PString OpenMCUH323EndPoint::GetMemberListOptsJavascript(Conference & conference
   }
  }
  members << ");";
- PTRACE(6,"GetMemberListOptsJavascript\t" << members);
+// PTRACE(6,"GetMemberListOptsJavascript\t" << members);
  return members;
 }
 

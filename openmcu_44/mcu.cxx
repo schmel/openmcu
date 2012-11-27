@@ -584,7 +584,7 @@ BOOL InteractiveHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEI
   PStringStream room; room << url; if(room.Find("Comm?room=")!=0) room=""; else room=room.Right(room.GetLength()-10);
   PStringStream message;
   PTime now;
-  int idx=0;
+  int idx;
   message << "HTTP/1.1 200 OK\r\n"
     << "Date: " << now.AsString(PTime::RFC1123, PTime::GMT) << "\r\n"
     << "Server: OpenMCU.ru\r\n"
@@ -596,18 +596,32 @@ BOOL InteractiveHTTP::OnGET (PHTTPServer & server, const PURL &url, const PMIMEI
     << "\r\n";
   server.Write((const char*)message,message.GetLength());
   server.flush();
-  message="<html><body style='font-size:9px;font-family:Verdana,Arial;padding:0px;margin:1px;color:#000'>\r\n";
-  message << OpenMCU::Current().HttpGetEvents(idx,room);
+  message="<html><body style='font-size:9px;font-family:Verdana,Arial;padding:0px;margin:1px;color:#000'><script>p=parent</script>\r\n";
+  message << OpenMCU::Current().HttpStartEventReading(idx,room);
+
+  if(room!=""){
+    OpenMCU::Current().GetEndpoint().GetConferenceManager().GetConferenceListMutex().Wait();
+    ConferenceListType & conferenceList = OpenMCU::Current().GetEndpoint().GetConferenceManager().GetConferenceList();
+    ConferenceListType::iterator r;
+    for (r = conferenceList.begin(); r != conferenceList.end(); ++r) if(r->second->GetNumber() == room) break;
+    if(r != conferenceList.end() ) {
+      Conference & conference = *(r->second);
+      message << "<script>p." << OpenMCU::Current().GetEndpoint().GetMemberListOptsJavascript(conference) << "\r\np.members_refresh();</script>\r\n";
+    }
+    OpenMCU::Current().GetEndpoint().GetConferenceManager().GetConferenceListMutex().Signal();
+  }
+
   while(server.Write((const char*)message,message.GetLength())) {
     server.flush();
     int count=0;
     message = OpenMCU::Current().HttpGetEvents(idx,room);
+//PTRACE(6,"Got message: " << message << ", idx=" << idx); cout << "Got message: " << message << ", idx=" << idx << "\n";
     while (message.GetLength()==0 && count < 20){
       count++;
       PThread::Sleep(100);
       message = OpenMCU::Current().HttpGetEvents(idx,room);
     }
-    message << "<script>parent.alive()</script>\r\n";
+    if(message.Find("<script>")==P_MAX_INDEX) message << "<script>p.alive()</script>\n";
   }
   return FALSE;
 }

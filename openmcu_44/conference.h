@@ -859,6 +859,9 @@ class ConferenceMember : public PObject
     BOOL disableVAD;
     BOOL chosenVan; // allways visible, but can change place on frame, used in 5+1 layout
     int vad;
+    unsigned long audioCounter;
+    unsigned audioLevelIndicator;
+    BOOL wasNoLevel;
 
   protected:
     Conference * conference;
